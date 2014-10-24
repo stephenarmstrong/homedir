@@ -1,0 +1,18 @@
+autodetach on # Detach on ssh hangup instead of terminating screen
+startup_message off # Turn off spash screen
+defscrollback 10000 # Scroll back buffer
+vbell off # Turn off tab-completion flash
+escape ^za # Use CTRL Z instead of CTRL A for the control key
+altscreen on # Keep less and vi from clobbering display
+defutf8 on # Enable unicode
+nonblock on # Enable nonblock
+
+shelltitle "$ |bash"
+
+# See http://www.manpagez.com/man/1/screen/ for reference
+# %{= kG} sets the colors to black background (k) with bright green (G) text
+# %{g} sets the text color to dull green
+# %H is the host name
+# %? brackets something as optional incase it's empty
+# %w all screen names (- all before current, + all after current)
+hardstatus alwayslastline '%{= kG}[ %H ]%{g}[ %{= kw}%?%-w%? %{r}(%{W}%n %f%t%{r}) %{= kw}%?%+w%? %{g}]'
