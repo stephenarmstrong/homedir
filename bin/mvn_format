@@ -1,0 +1,11 @@
+# Add the following to a pom for this to work:
+# <plugin>
+#     <groupId>com.googlecode.maven-java-formatter-plugin</groupId>
+#     <artifactId>maven-java-formatter-plugin</artifactId>
+#     <version>0.4</version>
+#     <configuration>
+#         <configFile>/path/to/exported/eclipse/format/profile.xml</configFile>
+#     </configuration>
+# </plugin>
+
+mvn java-formatter:format
