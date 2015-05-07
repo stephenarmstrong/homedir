@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# Make sure the following path points to a VM/VirtualBox shared folder
+SHARED_DIR=/var/vbox-shared
+
+CURRENT_HOST=$(hostname)
+
+if [[ "$1" == "--help" ]]; then
+    echo "Manage /etc/hosts for multiple virtual box IPs"
+    echo ""
+    echo "  $0"
+    echo "  Record this machine's ip for other boxes, and stitch in other"
+    echo "  boxes IPs into the current machine's host file"
+    echo ""
+    echo "  $0 --install interface"
+    echo "  Install this script to be run on this machine when network interfaces come up"
+    echo "  If you specify an interface, only run when that single interface comes up"
+    echo "  Add the interface to the manifest for this machine"
+    echo ""
+    exit 0
+elif [[ "$1" == "--install" ]]; then
+    # Install this strip to be run everytime a certain network interface comes up
+    INTERFACE=$2
+    if [[ -z "$INTERFACE" ]]; then
+        echo "If installing, specify which interface"
+        exit 1
+    fi
+    echo "Installing script to run on $INTERFACE start"
+    sudo tee /etc/network/if-up.d/stitch-hosts >/dev/null <<EOL
+#!/bin/sh -e
+if [ "\$IFACE" = "$INTERFACE" ]; then
+    $0 >> /tmp/stitch-hosts 2>&1
+fi
+EOL
+
+    # Install this machine into manifest
+    SCRATCH_FILE_MANIFEST=/tmp/stitch-hosts-manifest
+    rm -f $SCRATCH_FILE_MANIFEST
+    while read line; do
+        SINGLE_HOST=$(echo $line |cut -d' ' -f1)
+        SINGLE_INTERFACE=$(echo $line |cut -d' ' -f2)
+        if [[ "$SINGLE_HOST" == "$CURRENT_HOST" ]]; then
+            # Ignore the current host
+            continue
+        fi
+        echo "$SINGLE_HOST $SINGLE_INTERFACE" >> $SCRATCH_FILE_MANIFEST
+    done < $SHARED_DIR/manifest
+    echo "$CURRENT_HOST $INTERFACE" >> $SCRATCH_FILE_MANIFEST
+    cat $SCRATCH_FILE_MANIFEST |sudo tee $SHARED_DIR/manifest >/dev/null
+    rm $SCRATCH_FILE_MANIFEST
+    exit 0
+fi
+
+# Read the ip for a given host's given interface
+function readIp() {
+    HOST=$1
+    INTERFACE=$2
+    
+    echo $(cat $SHARED_DIR/$HOST.ifconfig |grep -A 3 $INTERFACE |grep " inet addr" |cut -d: -f2 |cut -d' ' -f1)
+}
+
+# Write out current info
+/sbin/ifconfig > $SHARED_DIR/$CURRENT_HOST.ifconfig
+
+# Validate that /etc/hosts has the right tags
+START_TAG="# stitch-hosts managed section (start)"
+END_TAG="# stitch-hosts managed section (end)"
+if [[ "$(grep -c "$START_TAG" /etc/hosts 2> /dev/null)" -ne "1" || "$(grep -c "$END_TAG" /etc/hosts 2> /dev/null)" -ne "1" ]]; then
+    echo "/etc/hosts needs to have start and end tags:"
+    echo $START_TAG
+    echo $END_TAG
+    exit 1
+fi
+
+SCRATCH_FILE_HOSTS=/tmp/stitch-hosts-hosts
+
+# Keep /etc/hosts up until START_TAG
+sed "/$START_TAG/q" /etc/hosts > $SCRATCH_FILE_HOSTS
+
+# Read the manifest
+while read line; do
+    HOST=$(echo $line |cut -d' ' -f1)
+    INTERFACE=$(echo $line |cut -d' ' -f2)
+    if [[ "$HOST" == "$CURRENT_HOST" ]]; then
+        # Ignore the current host
+        continue
+    fi
+
+    # Get the ip for the selected interface
+    IP=$(readIp $HOST $INTERFACE)
+
+    # Stitch the ip into the file
+    echo "$IP $HOST" >> $SCRATCH_FILE_HOSTS
+done < $SHARED_DIR/manifest
+
+# Keep /etc/hosts after END_TAG
+sed -n -e "/$END_TAG/,\$p" /etc/hosts >> $SCRATCH_FILE_HOSTS
+
+# Commit to the new file
+cat $SCRATCH_FILE_HOSTS |sudo tee /etc/hosts >/dev/null
+rm $SCRATCH_FILE_HOSTS
