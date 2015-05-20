@@ -2,5 +2,6 @@
 DIRS=$(ls ~/src)
 for dir in $DIRS; do
     cd ~/src/$dir
+    echo "Fetching $(pwd)"
     git fetch
 done
