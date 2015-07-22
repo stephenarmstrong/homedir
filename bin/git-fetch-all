@@ -1,7 +1,11 @@
 #!/bin/bash
+CMD="git fetch"
+if [[ "$1" == "--purge" ]]; then
+  CMD="git fetch -p"
+fi
 DIRS=$(ls ~/src)
 for dir in $DIRS; do
     cd ~/src/$dir
     echo "Fetching $(pwd)"
-    git fetch
+    $CMD
 done
