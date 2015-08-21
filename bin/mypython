@@ -1,0 +1,2 @@
+#!/bin/bash
+PYTHONSTARTUP="$HOME/bin/mypython.py" /usr/bin/bpython
