@@ -81,6 +81,7 @@ sed "/$START_TAG/q" /etc/hosts > $SCRATCH_FILE_HOSTS
 while read line; do
     HOST=$(echo $line |cut -d' ' -f1)
     INTERFACE=$(echo $line |cut -d' ' -f2)
+    ALIASES=$(echo $line |cut -d' ' -f3)
     if [[ "$HOST" == "$CURRENT_HOST" ]]; then
         # Ignore the current host
         continue
@@ -90,7 +91,7 @@ while read line; do
     IP=$(readIp $HOST $INTERFACE)
 
     # Stitch the ip into the file
-    echo "$IP $HOST" >> $SCRATCH_FILE_HOSTS
+    echo "$IP $HOST $ALIASES" >> $SCRATCH_FILE_HOSTS
 done < $SHARED_DIR/manifest
 
 # Keep /etc/hosts after END_TAG
