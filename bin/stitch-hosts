@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Use to keep ips synced between VirtualBox VMs
+# On all machines, SHARED_DIR should point to a VirtualBox shared folder
+# Put this script into that folder, and link it into your path on the host machine
+# Run the script with sudo on the guest machines (VirtualBox seems to make the shared folder only readable/writable/listable by root on guest machines)
+# Create an empty file at $SHARED_DIR/manifest
+# Run the --install command on each machine for the interface that should be mapped
+
 # Make sure the following path points to a VM/VirtualBox shared folder
 SHARED_DIR=/var/vbox-shared
 
