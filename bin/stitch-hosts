@@ -10,7 +10,8 @@
 # Make sure the following path points to a VM/VirtualBox shared folder
 SHARED_DIR=/var/vbox-shared
 
-CURRENT_HOST=$(hostname)
+# Get the hostname with any suffixes (.local) trimmed off
+CURRENT_HOST=$(hostname |tr '.' '\n' |head -n 1)
 
 if [[ "$1" == "--help" ]]; then
     echo "Manage /etc/hosts for multiple virtual box IPs"
@@ -50,20 +51,26 @@ EOL
             # Ignore the current host
             continue
         fi
-        echo "$SINGLE_HOST $SINGLE_INTERFACE" >> $SCRATCH_FILE_MANIFEST
+        echo "$SINGLE_HOST $SINGLE_INTERFACE linux" >> $SCRATCH_FILE_MANIFEST
     done < $SHARED_DIR/manifest
-    echo "$CURRENT_HOST $INTERFACE" >> $SCRATCH_FILE_MANIFEST
+    echo "$CURRENT_HOST $INTERFACE linux" >> $SCRATCH_FILE_MANIFEST
     cat $SCRATCH_FILE_MANIFEST |sudo tee $SHARED_DIR/manifest >/dev/null
     rm $SCRATCH_FILE_MANIFEST
     exit 0
 fi
 
 # Read the ip for a given host's given interface
-function readIp() {
+function readLinuxIp() {
     HOST=$1
     INTERFACE=$2
-    
     echo $(cat $SHARED_DIR/$HOST.ifconfig |grep -A 3 $INTERFACE |grep " inet addr" |cut -d: -f2 |cut -d' ' -f1)
+}
+
+# Read the ip for a given host's given interface
+function readMacIp() {
+    HOST=$1
+    INTERFACE=$2
+    echo $(cat $SHARED_DIR/$HOST.ifconfig |grep -A 3 $INTERFACE |grep "inet " |cut -d' ' -f2)
 }
 
 # Write out current info
@@ -88,14 +95,26 @@ sed "/$START_TAG/q" /etc/hosts > $SCRATCH_FILE_HOSTS
 while read line; do
     HOST=$(echo $line |cut -d' ' -f1)
     INTERFACE=$(echo $line |cut -d' ' -f2)
-    ALIASES=$(echo $line |cut -d' ' -f3)
+    OS=$(echo $line |cut -d' ' -f3)
+    ALIASES=$(echo $line |cut -d' ' -f4)
     if [[ "$HOST" == "$CURRENT_HOST" ]]; then
         # Ignore the current host
         continue
     fi
 
     # Get the ip for the selected interface
-    IP=$(readIp $HOST $INTERFACE)
+    case $OS in
+        linux)
+            IP=$(readLinuxIp $HOST $INTERFACE)
+            ;;
+        mac)
+            IP=$(readMacIp $HOST $INTERFACE)
+            ;;
+        *)
+            echo "Cannot handle os type $OS"
+            exit 1
+            ;;
+    esac
 
     # Stitch the ip into the file
     echo "$IP $HOST $ALIASES" >> $SCRATCH_FILE_HOSTS
